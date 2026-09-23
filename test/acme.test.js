@@ -141,3 +141,26 @@ test('CSR generation supports SANs with RSA and ECDSA keys', async () => {
     assert.ok(derText.includes('*.example.net'));
   }
 });
+
+
+test('default fetch keeps the browser global receiver', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = function (url) {
+    assert.equal(this, globalThis);
+    assert.equal(url, directoryUrl);
+    return new Response(JSON.stringify({
+      newNonce: 'https://ca.test/nonce',
+      newAccount: 'https://ca.test/account',
+      newOrder: 'https://ca.test/order',
+      revokeCert: 'https://ca.test/revoke',
+    }), { headers: { 'Content-Type': 'application/json' } });
+  };
+
+  try {
+    const acme = new ACME({ directoryUrl });
+    await acme.init();
+    assert.equal(acme.directory.newOrder, 'https://ca.test/order');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
