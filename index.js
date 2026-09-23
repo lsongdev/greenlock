@@ -1,10 +1,12 @@
-import { h, render } from 'https://esm.sh/preact@10.27.2';
-import { useEffect, useState } from 'https://esm.sh/preact@10.27.2/hooks';
-import htm from 'https://esm.sh/htm@3.1.1';
+import {
+  html,
+  render,
+  useEffect,
+  useState,
+} from 'https://lsong.org/scripts/react/index.js';
 import { AcmeClient } from './acme.js';
 import { createCSR, exportPrivateKey, generateKeyPair } from './crypto.js';
 
-const html = htm.bind(h);
 
 const PROVIDERS = [
   ['Let’s Encrypt', 'https://acme-v02.api.letsencrypt.org/directory'],

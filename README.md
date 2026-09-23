@@ -16,7 +16,7 @@ The repository is both a static web app and a reusable JavaScript module.
 
 Serve the repository as static files and open `index.html`.
 
-The UI uses Preact + htm directly from ESM CDN imports. The ACME and crypto modules themselves have no external dependencies.
+The UI imports its shared Preact + htm runtime from `https://lsong.org/scripts/react/index.js`, matching the rest of lsong.org. The ACME and crypto modules themselves have no external dependencies.
 
 You can also use the client directly from a browser module:
 
