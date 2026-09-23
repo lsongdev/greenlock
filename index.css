@@ -122,3 +122,15 @@ pre {
 details {
   margin-top: 16px;
 }
+
+
+.checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.checkbox input {
+  width: auto;
+  margin-top: .3em;
+}
