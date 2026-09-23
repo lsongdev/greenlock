@@ -104,9 +104,9 @@ function App() {
     })));
     setOrder(nextOrder);
     setAuthorizations(auths);
-    if (nextOrder.certificate) {
-      setCertificate(await client.getCertificate(nextOrder.certificate));
-    }
+    setCertificate(nextOrder.certificate
+      ? await client.getCertificate(nextOrder.certificate)
+      : '');
     return nextOrder;
   }
 
@@ -115,6 +115,8 @@ function App() {
     await run(async () => {
       const domains = normalizeDomains(domainInput);
       if (!domains.length) throw new Error('Enter at least one domain');
+      setSelected({});
+      setCertificate('');
       const keyPair = await generateKeyPair();
       const request = await createCSR(keyPair, domains);
       const privateKey = await exportPrivateKey(keyPair);
