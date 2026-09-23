@@ -164,3 +164,19 @@ test('default fetch keeps the browser global receiver', async () => {
     globalThis.fetch = originalFetch;
   }
 });
+
+
+test('newAccount does not imply terms agreement', async () => {
+  const calls = [];
+  const acme = await ACME.create({ directoryUrl, fetch: mockFetch(calls) });
+  await acme.setAccountKey(await generateKeyPair());
+
+  await acme.createAccount({
+    contact: ['mailto:test@example.com'],
+    termsOfServiceAgreed: false,
+  });
+
+  const request = JSON.parse(calls.find(call => call.url === 'https://ca.test/account').init.body);
+  const payload = decode(request.payload);
+  assert.equal(payload.termsOfServiceAgreed, false);
+});

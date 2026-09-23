@@ -39,6 +39,7 @@ function App() {
   const [directory, setDirectory] = useState(null);
   const [client, setClient] = useState(null);
   const [email, setEmail] = useState('');
+  const [termsAgreed, setTermsAgreed] = useState(false);
   const [accountKey, setAccountKey] = useState('');
   const [accountUrl, setAccountUrl] = useState('');
   const [domainInput, setDomainInput] = useState('');
@@ -58,6 +59,7 @@ function App() {
     setClient(acme);
     setDirectory(null);
     setAccountKey('');
+    setTermsAgreed(false);
     setAccountUrl('');
     setOrderUrl('');
     setOrder(null);
@@ -92,7 +94,7 @@ function App() {
       const keyPair = await generateKeyPair();
       await client.setKeyPair(keyPair);
       const privateKey = await exportPrivateKey(keyPair);
-      await client.createAccount({ contact: [`mailto:${email}`], termsOfServiceAgreed: true });
+      await client.createAccount({ contact: [`mailto:${email}`], termsOfServiceAgreed: termsAgreed });
       setAccountKey(privateKey);
       setAccountUrl(client.accountUrl);
     });
@@ -194,7 +196,7 @@ function App() {
         </select>
       </label>
       ${directory
-        ? html`<p class="muted">Directory loaded.${directory.meta?.termsOfService && html` <a href=${directory.meta.termsOfService} target="_blank" rel="noreferrer">Terms of Service</a>`}</p>`
+        ? html`<p class="muted">Directory loaded.</p>`
         : html`<p class="muted">Loading ACME directory…</p>`}
 
       ${!accountUrl ? html`
@@ -204,8 +206,14 @@ function App() {
             <input type="email" required value=${email} disabled=${busy || !directory}
               onInput=${event => setEmail(event.target.value)} placeholder="you@example.com">
           </label>
-          <button disabled=${busy || !directory}>Create ACME account</button>
-          <small>Creating the account means you agree to the CA terms linked above.</small>
+          ${directory?.meta?.termsOfService && html`
+            <label class="checkbox">
+              <input type="checkbox" required checked=${termsAgreed} disabled=${busy}
+                onChange=${event => setTermsAgreed(event.target.checked)}>
+              <span>I agree to the <a href=${directory.meta.termsOfService} target="_blank" rel="noreferrer">Terms of Service</a>.</span>
+            </label>
+          `}
+          <button disabled=${busy || !directory}>${busy ? 'Creating account…' : 'Create ACME account'}</button>
         </form>
       ` : html`
         <p class="status">✓ Account ready</p>
