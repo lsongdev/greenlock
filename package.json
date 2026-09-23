@@ -17,6 +17,5 @@
   "engines": {
     "node": ">=18"
   },
-  "repository": "github:lsongdev/greenlock",
-  "license": "MIT"
+  "repository": "github:lsongdev/greenlock"
 }
