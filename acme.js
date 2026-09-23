@@ -1,13 +1,8 @@
-import {
-  sign,
-  sha256,
-  exportPublicKeyToJwk,
-} from 'https://lsong.org/scripts/crypto/index.js';
-import { base64UrlEncode } from 'https://lsong.org/scripts/crypto/base64.js';
+import { base64url, sha256 } from './crypto.js';
 
 export class AcmeClient {
-  constructor() {
-    this.directoryUrl = null;
+  constructor(directoryUrl) {
+    this.directoryUrl = directoryUrl;
     this.directory = null;
     this.nonce = null;
     this.accountUrl = null;
@@ -16,175 +11,122 @@ export class AcmeClient {
     this.thumbprint = null;
   }
 
-  // Public methods
-
-  setDirectoryUrl(directoryUrl) {
-    this.directoryUrl = directoryUrl;
-  }
-
-  async getDirectory() {
-    if (!this.directoryUrl)
-      throw new Error('Provider not set. Call setProvider() first.');
+  async init() {
     const response = await fetch(this.directoryUrl);
-    return this.directory = await response.json();
+    if (!response.ok) throw new Error(`Unable to load ACME directory (${response.status})`);
+    this.directory = await response.json();
+    return this.directory;
   }
 
-  async importKeyPair(keyPair) {
+  async setKeyPair(keyPair) {
     this.keyPair = keyPair;
-    this.publicJwk = await exportPublicKeyToJwk(this.keyPair.publicKey);
-  }
-
-  async getThumbprint() {
-    if (!this.publicJwk)
-      throw new Error('Public key not set. Import key pair first.');
-    // Create a canonical JWK by including only the required fields in lexicographic order
-    const canonicalJwk = {
+    this.publicJwk = await crypto.subtle.exportKey('jwk', keyPair.publicKey);
+    const canonical = JSON.stringify({
       e: this.publicJwk.e,
       kty: this.publicJwk.kty,
-      n: this.publicJwk.n
-    };
-    // Stringify the canonical JWK without whitespace
-    const jwkString = JSON.stringify(canonicalJwk);
-    // Calculate SHA-256 hash
-    const hashBuffer = await sha256(jwkString);
-    this.thumbprint = base64UrlEncode(hashBuffer);
-    return this.thumbprint;
-  }
-
-  async getNonce({ force = false } = {}) {
-    if (!force && this.nonce) return this.nonce;
-    const response = await fetch(this.directory.newNonce, { method: 'HEAD' });
-    return this.nonce = response.headers.get('Replay-Nonce');
-  }
-
-  async _createRequestHeader(url) {
-    return {
-      url,
-      alg: 'RS256',
-      nonce: await this.getNonce(),
-      kid: this.accountUrl || undefined,
-      jwk: this.accountUrl ? undefined : this.publicJwk,
-    };
-  }
-
-  async _createJws(header, payload) {
-    const encodedHeader = base64UrlEncode(JSON.stringify(header));
-    const encodedPayload = payload ? base64UrlEncode(JSON.stringify(payload)) : '';
-    const encoder = new TextEncoder();
-    const data = encoder.encode(`${encodedHeader}.${encodedPayload}`);
-    const signature = await sign(this.keyPair.privateKey, data);
-    return {
-      protected: encodedHeader,
-      payload: encodedPayload,
-      signature: base64UrlEncode(signature),
-    };
-  }
-
-  async _sendRequest(url, jws, method) {
-    const response = await fetch(url, {
-      method: method,
-      headers: { 'Content-Type': 'application/jose+json' },
-      body: method !== 'GET' ? JSON.stringify(jws) : undefined,
+      n: this.publicJwk.n,
     });
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`ACME request failed: ${errorData.detail}`);
-    }
-    this.nonce = response.headers.get('Replay-Nonce');
-    return response;
+    this.thumbprint = base64url(await sha256(canonical));
   }
 
-  async _signedRequest(url, payload, method = 'POST') {
-    const header = await this._createRequestHeader(url);
-    const jws = await this._createJws(header, payload);
-    return this._sendRequest(url, jws, method);
+  keyAuthorization(token) {
+    if (!this.thumbprint) throw new Error('Account key is not initialized');
+    return `${token}.${this.thumbprint}`;
   }
 
-  async getResourceUrl(name) {
-    if (!this.directory)
-      this.directory = await this.getDirectory();
-    return this.directory[name];
-  }
-
-  async registerAccount(accountUrl) {
-    this.accountUrl = accountUrl;
-  }
-
-  async createAccount(payload) {
-    const url = await this.getResourceUrl('newAccount');
-    const response = await this._signedRequest(url, payload);
-    const data = await response.json();
-    data.url = response.headers.get('Location');
-    return data;
-  }
-
-
-  async updateAccount(payload) {
-    const response = await this._signedRequest(this.accountUrl, payload);
+  async createAccount(email, termsOfServiceAgreed = true) {
+    const response = await this.#post(this.directory.newAccount, {
+      contact: email ? [`mailto:${email}`] : [],
+      termsOfServiceAgreed,
+    });
+    this.accountUrl = response.headers.get('Location');
+    if (!this.accountUrl) throw new Error('ACME server did not return an account URL');
     return response.json();
   }
 
-  async deactivateAccount() {
-    const payload = { status: 'deactivated' };
-    const response = await this._signedRequest(this.accountUrl, payload);
-    return response.json();
-  }
-
-  async changeAccountKey(newPublicKey) {
-    const payload = {
-      account: this.accountUrl,
-      oldKey: this.publicJwk,
-      newKey: newPublicKey,
-    };
-    const url = await this.getResourceUrl('keyChange');
-    const response = await this._signedRequest(url, payload);
-    return response.json();
-  }
-
-  async createOrder(payload) {
-    const url = await this.getResourceUrl('newOrder');
-    const response = await this._signedRequest(url, payload);
+  async createOrder(domains) {
+    const response = await this.#post(this.directory.newOrder, {
+      identifiers: domains.map(value => ({ type: 'dns', value })),
+    });
     const order = await response.json();
     order.url = response.headers.get('Location');
     return order;
   }
 
-  async getOrder(orderUrl) {
-    const response = await fetch(orderUrl);
-    return response.json();
+  async getOrder(url) {
+    return (await this.#post(url, null)).json();
   }
 
-  async getAuthorization(authUrl) {
-    const response = await fetch(authUrl);
-    return response.json();
+  async getAuthorization(url) {
+    return (await this.#post(url, null)).json();
   }
 
-  async getChallenge(challengeUrl) {
-    const response = await fetch(challengeUrl);
-    return response.json();
+  async respondToChallenge(url) {
+    return (await this.#post(url, {})).json();
   }
 
-  async verifyChallenge(challengeUrl) {
-    const payload = {};
-    const response = await this._signedRequest(challengeUrl, payload);
-    return response.json();
+  async finalizeOrder(url, csr) {
+    return (await this.#post(url, { csr: base64url(csr) })).json();
   }
 
-  async finalizeOrder(finalizeUrl, csr) {
-    const payload = { csr };
-    const response = await this._signedRequest(finalizeUrl, payload);
-    return response.json();
+  async getCertificate(url) {
+    return (await this.#post(url, null, {
+      Accept: 'application/pem-certificate-chain',
+    })).text();
   }
 
-  async getCertificate(certUrl){
-    const response = await fetch(certUrl);
-    return response.text();
+  async #getNonce() {
+    if (this.nonce) {
+      const nonce = this.nonce;
+      this.nonce = null;
+      return nonce;
+    }
+    const response = await fetch(this.directory.newNonce, { method: 'HEAD' });
+    if (!response.ok) throw new Error(`Unable to obtain ACME nonce (${response.status})`);
+    const nonce = response.headers.get('Replay-Nonce');
+    if (!nonce) throw new Error('ACME server did not return a nonce');
+    return nonce;
   }
 
-  async revokeCertificate(certificate, reason) {
-    const payload = { certificate, reason };
-    const url = await this.getResourceUrl('revokeCert');
-    const response = await this._signedRequest(url, payload);
-    return response.json();
+  async #jws(url, payload) {
+    if (!this.keyPair || !this.publicJwk) throw new Error('Account key is not initialized');
+    const protectedHeader = {
+      alg: 'RS256',
+      nonce: await this.#getNonce(),
+      url,
+      ...(this.accountUrl ? { kid: this.accountUrl } : { jwk: this.publicJwk }),
+    };
+    const protectedValue = base64url(JSON.stringify(protectedHeader));
+    const payloadValue = payload === null ? '' : base64url(JSON.stringify(payload));
+    const data = new TextEncoder().encode(`${protectedValue}.${payloadValue}`);
+    const signature = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', this.keyPair.privateKey, data);
+    return {
+      protected: protectedValue,
+      payload: payloadValue,
+      signature: base64url(signature),
+    };
+  }
+
+  async #post(url, payload, headers = {}, retry = true) {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/jose+json',
+        ...headers,
+      },
+      body: JSON.stringify(await this.#jws(url, payload)),
+    });
+
+    this.nonce = response.headers.get('Replay-Nonce') || this.nonce;
+    if (response.ok) return response;
+
+    const body = await response.text();
+    let problem;
+    try { problem = JSON.parse(body); } catch { problem = { detail: body }; }
+
+    if (retry && problem.type?.endsWith(':badNonce')) {
+      return this.#post(url, payload, headers, false);
+    }
+    throw new Error(problem.detail || problem.title || `ACME request failed (${response.status})`);
   }
 }
