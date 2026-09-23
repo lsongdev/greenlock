@@ -125,12 +125,24 @@ details {
 
 
 .checkbox {
-  display: flex;
-  align-items: flex-start;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: start;
   gap: 8px;
+  max-width: 100%;
+  line-height: 1.45;
 }
 
 .checkbox input {
   width: auto;
-  margin-top: .3em;
+  margin: .25em 0 0;
+}
+
+.checkbox label {
+  display: block;
+  min-width: 0;
+}
+
+.checkbox a {
+  text-underline-offset: .15em;
 }

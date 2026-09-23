@@ -34,6 +34,17 @@ function download(name, content) {
   setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
+function domainFilename(domains) {
+  const label = domains.map(domain => domain.startsWith('*.')
+    ? `wildcard-${domain.slice(2)}`
+    : domain).join('_');
+  return label.length > 180 ? `${label.slice(0, 160)}_and-${domains.length}-domains` : label;
+}
+
+function filenameSlug(value) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+
 function App() {
   const [directoryUrl, setDirectoryUrl] = useState(PROVIDERS[0][1]);
   const [directory, setDirectory] = useState(null);
@@ -41,6 +52,7 @@ function App() {
   const [email, setEmail] = useState('');
   const [termsAgreed, setTermsAgreed] = useState(false);
   const [accountKey, setAccountKey] = useState('');
+  const [accountKeyFilename, setAccountKeyFilename] = useState('');
   const [accountUrl, setAccountUrl] = useState('');
   const [domainInput, setDomainInput] = useState('');
   const [orderUrl, setOrderUrl] = useState('');
@@ -48,6 +60,7 @@ function App() {
   const [authorizations, setAuthorizations] = useState([]);
   const [selected, setSelected] = useState({});
   const [certificateKey, setCertificateKey] = useState('');
+  const [certificateDomains, setCertificateDomains] = useState([]);
   const [csr, setCsr] = useState(null);
   const [certificate, setCertificate] = useState('');
   const [busy, setBusy] = useState(false);
@@ -59,6 +72,7 @@ function App() {
     setClient(acme);
     setDirectory(null);
     setAccountKey('');
+    setAccountKeyFilename('');
     setTermsAgreed(false);
     setAccountUrl('');
     setOrderUrl('');
@@ -66,6 +80,7 @@ function App() {
     setAuthorizations([]);
     setSelected({});
     setCertificateKey('');
+    setCertificateDomains([]);
     setCsr(null);
     setCertificate('');
     setError('');
@@ -90,12 +105,16 @@ function App() {
 
   async function createAccount(event) {
     event.preventDefault();
+    const form = event.currentTarget.closest('form');
+    if (!form?.reportValidity()) return;
     await run(async () => {
       const keyPair = await generateKeyPair();
       await client.setKeyPair(keyPair);
       const privateKey = await exportPrivateKey(keyPair);
       await client.createAccount({ contact: [`mailto:${email}`], termsOfServiceAgreed: termsAgreed });
       setAccountKey(privateKey);
+      const providerName = PROVIDERS.find(([, url]) => url === directoryUrl)?.[0] || 'acme';
+      setAccountKeyFilename(`${filenameSlug(providerName)}-${filenameSlug(email)}-account-key.pem`);
       setAccountUrl(client.accountUrl);
     });
   }
@@ -121,6 +140,7 @@ function App() {
       if (!domains.length) throw new Error('Enter at least one domain');
       setSelected({});
       setCertificate('');
+      setCertificateDomains(domains);
       const keyPair = await generateKeyPair();
       const request = await createCSR(keyPair, domains);
       const privateKey = await exportPrivateKey(keyPair);
@@ -204,21 +224,21 @@ function App() {
           <label>
             Email
             <input type="email" required value=${email} disabled=${busy || !directory}
-              onInput=${event => setEmail(event.target.value)} placeholder="you@example.com">
+              onInput=${event => setEmail(event.target.value)} placeholder="you@example.com" />
           </label>
           ${directory?.meta?.termsOfService && html`
-            <label class="checkbox">
-              <input type="checkbox" required checked=${termsAgreed} disabled=${busy}
-                onChange=${event => setTermsAgreed(event.target.checked)}>
-              <span>I agree to the <a href=${directory.meta.termsOfService} target="_blank" rel="noreferrer">Terms of Service</a>.</span>
-            </label>
+            <div class="checkbox">
+              <input id="terms-agreed" type="checkbox" required checked=${termsAgreed} disabled=${busy}
+                onChange=${event => setTermsAgreed(event.target.checked)} />
+              <label for="terms-agreed">I agree to the <a href=${directory.meta.termsOfService} target="_blank" rel="noreferrer">Terms of Service</a>.</label>
+            </div>
           `}
-          <button disabled=${busy || !directory}>${busy ? 'Creating account…' : 'Create ACME account'}</button>
+          <button type="button" disabled=${busy || !directory} onClick=${createAccount}>${busy ? 'Creating account…' : 'Create ACME account'}</button>
         </form>
       ` : html`
         <p class="status">✓ Account ready</p>
         <code>${accountUrl}</code>
-        <p><button class="secondary" onClick=${() => download('greenlock-account-key.pem', accountKey)}>Download account key</button></p>
+        <p><button class="secondary" onClick=${() => download(accountKeyFilename, accountKey)}>Download account key</button></p>
       `}
     </section>
 
@@ -285,9 +305,9 @@ function App() {
         <h2>5. Download</h2>
         <p class="status">Keep the private key secret. Greenlock does not persist it.</p>
         <div class="row">
-          <button onClick=${() => download('certificate.pem', certificate)}>Certificate</button>
-          <button class="secondary" onClick=${() => download('private-key.pem', certificateKey)}>Private key</button>
-          <button class="secondary" onClick=${() => download('request.csr', csr.pem)}>CSR</button>
+          <button onClick=${() => download(`${domainFilename(certificateDomains)}-certificate.pem`, certificate)}>Certificate</button>
+          <button class="secondary" onClick=${() => download(`${domainFilename(certificateDomains)}-private-key.pem`, certificateKey)}>Private key</button>
+          <button class="secondary" onClick=${() => download(`${domainFilename(certificateDomains)}-request.csr`, csr.pem)}>CSR</button>
         </div>
         <details>
           <summary>Certificate PEM</summary>
