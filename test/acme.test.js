@@ -26,12 +26,12 @@ function mockFetch(calls) {
     calls.push({ url, init });
 
     if (url === directoryUrl) {
-      return Response.json({
+      return new Response(JSON.stringify({
         newNonce: 'https://ca.test/nonce',
         newAccount: 'https://ca.test/account',
         newOrder: 'https://ca.test/order',
         revokeCert: 'https://ca.test/revoke',
-      });
+      }), { headers: { 'Content-Type': 'application/json' } });
     }
 
     if (url === 'https://ca.test/nonce') {
@@ -42,9 +42,10 @@ function mockFetch(calls) {
     }
 
     if (url === 'https://ca.test/account') {
-      return Response.json({ status: 'valid' }, {
+      return new Response(JSON.stringify({ status: 'valid' }), {
         status: 201,
         headers: {
+          'Content-Type': 'application/json',
           Location: accountUrl,
           'Replay-Nonce': `nonce-${++nonce}`,
         },
@@ -52,13 +53,14 @@ function mockFetch(calls) {
     }
 
     if (url === 'https://ca.test/order') {
-      return Response.json({
+      return new Response(JSON.stringify({
         status: 'pending',
         authorizations: [],
         finalize: 'https://ca.test/finalize/1',
-      }, {
+      }), {
         status: 201,
         headers: {
+          'Content-Type': 'application/json',
           Location: 'https://ca.test/order/1',
           'Replay-Nonce': `nonce-${++nonce}`,
         },
@@ -102,8 +104,8 @@ test('PKCS#8 account keys round-trip without node:crypto', async () => {
   const pem = await exportPrivateKey(original);
   const imported = await importKeyPair(pem);
 
-  const before = await crypto.subtle.exportKey('jwk', original.publicKey);
-  const after = await crypto.subtle.exportKey('jwk', imported.publicKey);
+  const before = await globalThis.crypto.subtle.exportKey('jwk', original.publicKey);
+  const after = await globalThis.crypto.subtle.exportKey('jwk', imported.publicKey);
   assert.deepEqual(
     { kty: after.kty, crv: after.crv, x: after.x, y: after.y },
     { kty: before.kty, crv: before.crv, x: before.x, y: before.y },
