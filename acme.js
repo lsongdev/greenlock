@@ -67,7 +67,7 @@ export class ACME {
     const keyPair = typeof value === 'string' ? await importKeyPair(value) : value;
     if (!keyPair?.privateKey || !keyPair?.publicKey) throw new TypeError('A CryptoKeyPair or PKCS#8 private key is required');
     this.keyPair = keyPair;
-    this.publicJwk = await crypto.subtle.exportKey('jwk', keyPair.publicKey);
+    this.publicJwk = await globalThis.crypto.subtle.exportKey('jwk', keyPair.publicKey);
     this.thumbprint = base64url(await sha256(JSON.stringify(canonicalJwk(this.publicJwk))));
     return keyPair;
   }
@@ -200,7 +200,7 @@ export class ACME {
     const protectedValue = base64url(JSON.stringify(header));
     const payloadValue = payload === null ? '' : base64url(JSON.stringify(payload));
     const input = new TextEncoder().encode(`${protectedValue}.${payloadValue}`);
-    const signature = await crypto.subtle.sign(algorithm.sign, this.keyPair.privateKey, input);
+    const signature = await globalThis.crypto.subtle.sign(algorithm.sign, this.keyPair.privateKey, input);
     return {
       protected: protectedValue,
       payload: payloadValue,
