@@ -1,0 +1,21 @@
+{
+  "name": "@lsongdev/greenlock",
+  "version": "2.0.0",
+  "type": "module",
+  "description": "Tiny RFC 8555 ACME client for browsers and Node.js",
+  "exports": {
+    ".": "./acme.js",
+    "./crypto": "./crypto.js"
+  },
+  "files": [
+    "acme.js",
+    "crypto.js"
+  ],
+  "scripts": {
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": "github:lsongdev/greenlock"
+}

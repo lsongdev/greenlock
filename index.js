@@ -2,7 +2,7 @@ import { h, render } from 'https://esm.sh/preact@10.27.2';
 import { useEffect, useState } from 'https://esm.sh/preact@10.27.2/hooks';
 import htm from 'https://esm.sh/htm@3.1.1';
 import { AcmeClient } from './acme.js';
-import { base64url, createCSR, exportPrivateKey, generateKeyPair, sha256 } from './crypto.js';
+import { createCSR, exportPrivateKey, generateKeyPair } from './crypto.js';
 
 const html = htm.bind(h);
 
@@ -90,7 +90,7 @@ function App() {
       const keyPair = await generateKeyPair();
       await client.setKeyPair(keyPair);
       const privateKey = await exportPrivateKey(keyPair);
-      await client.createAccount(email, true);
+      await client.createAccount({ contact: [`mailto:${email}`], termsOfServiceAgreed: true });
       setAccountKey(privateKey);
       setAccountUrl(client.accountUrl);
     });
@@ -120,7 +120,7 @@ function App() {
       const keyPair = await generateKeyPair();
       const request = await createCSR(keyPair, domains);
       const privateKey = await exportPrivateKey(keyPair);
-      const nextOrder = await client.createOrder(domains);
+      const nextOrder = await client.createOrder({ identifiers: domains.map(value => ({ type: 'dns', value })) });
       if (!nextOrder.url) throw new Error('ACME server did not return an order URL');
       setCertificateKey(privateKey);
       setCsr(request);
@@ -131,19 +131,19 @@ function App() {
 
   async function chooseChallenge(auth, challenge) {
     await run(async () => {
-      const keyAuthorization = client.keyAuthorization(challenge.token);
+      const challengeKey = await client.getChallengeKey(challenge);
       let instruction;
       if (challenge.type === 'http-01') {
         instruction = {
           label: 'Serve this exact content over HTTP',
           name: `http://${auth.identifier.value}/.well-known/acme-challenge/${challenge.token}`,
-          value: keyAuthorization,
+          value: challengeKey,
         };
       } else if (challenge.type === 'dns-01') {
         instruction = {
           label: 'Create this DNS TXT record',
           name: `_acme-challenge.${auth.identifier.value}`,
-          value: base64url(await sha256(keyAuthorization)),
+          value: challengeKey,
         };
       } else {
         throw new Error(`Unsupported challenge: ${challenge.type}`);
