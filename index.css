@@ -1,12 +1,124 @@
-@import url(https://lsong.org/css/stylesheet.css);
-@import url(https://lsong.org/stylesheets/form.css);
-@import url(https://lsong.org/stylesheets/input.css);
-@import url(https://lsong.org/stylesheets/button.css);
+:root {
+  color-scheme: light dark;
+  font: 16px/1.5 system-ui, sans-serif;
+}
+
+body {
+  margin: 0;
+}
+
+main {
+  width: min(720px, calc(100% - 32px));
+  margin: 48px auto;
+}
+
+header, section, footer {
+  margin: 0 0 32px;
+}
+
+h1, h2, p {
+  margin-top: 0;
+}
+
+h1 {
+  font-size: 2rem;
+  margin-bottom: 8px;
+}
+
+h2 {
+  font-size: 1.1rem;
+  border-bottom: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  padding-bottom: 8px;
+}
+
+form, article, .instruction {
+  display: grid;
+  gap: 12px;
+}
+
+article {
+  padding: 12px 0;
+  border-bottom: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+}
+
+label {
+  display: grid;
+  gap: 6px;
+}
+
+input, select, textarea, button {
+  font: inherit;
+}
+
+input, select, textarea {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 9px 10px;
+}
 
 textarea {
-  min-height: 150px;
-  min-width: 100%;
-  max-width: 100%;
-  display: block;
-  box-sizing: border-box;
+  resize: vertical;
+}
+
+button {
+  width: fit-content;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: default;
+  opacity: .55;
+}
+
+button.secondary {
+  background: transparent;
+}
+
+button.link {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: inherit;
+  text-decoration: underline;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.muted, small {
+  opacity: .7;
+}
+
+.status {
+  margin-bottom: 8px;
+}
+
+.error {
+  padding: 10px 12px;
+  border: 1px solid currentColor;
+}
+
+.badge {
+  margin-left: 6px;
+  font-size: .8em;
+  opacity: .7;
+}
+
+code, pre {
+  overflow-wrap: anywhere;
+}
+
+pre {
+  overflow: auto;
+  padding: 10px;
+  background: color-mix(in srgb, currentColor 7%, transparent);
+  white-space: pre-wrap;
+}
+
+details {
+  margin-top: 16px;
 }
