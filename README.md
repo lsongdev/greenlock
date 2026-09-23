@@ -40,7 +40,7 @@ console.log(account.url);
 
 ## Node.js
 
-Node.js 18+ provides the same `fetch` and Web Crypto APIs used by the browser version.
+Node.js 20+ provides the same `fetch` and Web Crypto APIs used by the browser version.
 
 ```js
 import { readFile } from 'node:fs/promises';
