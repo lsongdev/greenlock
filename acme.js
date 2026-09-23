@@ -38,7 +38,7 @@ export class ACME {
     if (typeof options === 'string') options = { directoryUrl: options };
     this.directoryUrl = options.directoryUrl;
     this.accountUrl = options.accountUrl || null;
-    this.fetch = options.fetch || globalThis.fetch;
+    this.fetch = options.fetch || globalThis.fetch?.bind(globalThis);
     this.directory = null;
     this.nonce = null;
     this.keyPair = null;
